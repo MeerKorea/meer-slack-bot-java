@@ -16,9 +16,8 @@ import slackbot.dto.PlaygroundRequest;
 import slackbot.dto.SlackPostBody;
 import slackbot.dto.VerifyRequest;
 
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.*;
+import java.nio.Buffer;
 import java.util.UUID;
 
 
@@ -37,7 +36,7 @@ public class SlackController {
     }
 
     @PostMapping("/")
-    public ResponseEntity echo(@RequestBody EchoRequest request) throws IOException {
+    public ResponseEntity echo(@RequestBody EchoRequest request) throws IOException, InterruptedException {
         // bot인지 아닌지
         if (request.getEvent().getBotId() != null) {
             return ResponseEntity.ok().build();
@@ -55,27 +54,47 @@ public class SlackController {
             String content = StringEscapeUtils.unescapeHtml4(parsedText[1]);
 
             String uuid = UUID.randomUUID().toString();
-
-            OutputStream output = new FileOutputStream("src/main/resources/codes/"+uuid+".c");
+            String sourceCodePath = String.format("src/main/resources/codes/%s.c", uuid);
+            OutputStream output = new FileOutputStream(sourceCodePath);
             output.write(content.getBytes());
 
+            // 플레이그라운드 컨테이너 run
+            Runtime rt = Runtime.getRuntime();
+            Process pr = rt.exec(String.format("docker run -itd --rm --network host --name %s gcc", uuid));
+            BufferedReader containerInput = new BufferedReader(new InputStreamReader(pr.getInputStream()));
+            String s = null;
+            while((s = containerInput.readLine()) != null){
+                System.out.println(s);
+            }
 
+            // 컨테이너에 생성된 c 전달하기
+            pr = rt.exec(String.format("docker cp %s %s:/", sourceCodePath, uuid));
+            containerInput = new BufferedReader(new InputStreamReader(pr.getErrorStream()));
+            while((s = containerInput.readLine()) != null){
+                System.out.println(s);
+            }
+            // 컨테이너에 존재하는 compile.sh 실행
+            pr = rt.exec(String.format("docker exec %s /compile.sh %s.c", uuid, uuid));
+            containerInput = new BufferedReader(new InputStreamReader(pr.getErrorStream()));
+            while((s = containerInput.readLine()) != null){
+                System.out.println(s);
+            }
 
             // key값, 채널값 가져오기
             SlackPostBody slackPostBody = new SlackPostBody(content, channelId);
 
-            // 보내주기
-            RestTemplate restTemplate = new RestTemplate();
-
-            HttpHeaders httpHeaders = new HttpHeaders();
-            httpHeaders.setContentType(MediaType.APPLICATION_JSON);
-            httpHeaders.set("Authorization", key);
-
-            HttpEntity<String> postRequest = new HttpEntity<>(slackPostBody.toJson(), httpHeaders);
-
-            String url = "https://slack.com/api/chat.postMessage";
-
-            restTemplate.postForEntity(url, postRequest, String.class);
+//            // 보내주기
+//            RestTemplate restTemplate = new RestTemplate();
+//
+//            HttpHeaders httpHeaders = new HttpHeaders();
+//            httpHeaders.setContentType(MediaType.APPLICATION_JSON);
+//            httpHeaders.set("Authorization", key);
+//
+//            HttpEntity<String> postRequest = new HttpEntity<>(slackPostBody.toJson(), httpHeaders);
+//
+//            String url = "https://slack.com/api/chat.postMessage";
+//
+//            restTemplate.postForEntity(url, postRequest, String.class);
         }
 
         return ResponseEntity.ok().build();
