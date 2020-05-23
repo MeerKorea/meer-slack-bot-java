@@ -1,6 +1,6 @@
 package slackbot.controller;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.commons.text.StringEscapeUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -14,6 +14,12 @@ import slackbot.dto.EchoRequest;
 import slackbot.dto.SlackPostBody;
 import slackbot.dto.VerifyRequest;
 
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.UUID;
+
+
 @Controller
 public class SlackController {
 
@@ -23,34 +29,50 @@ public class SlackController {
     @Value("${slack.api.channelId}")
     private String channelId;
 
-//    @PostMapping("/")
+    //    @PostMapping("/")
     public ResponseEntity verify(@RequestBody VerifyRequest request) {
         return ResponseEntity.ok(request);
     }
 
     @PostMapping("/")
-    public ResponseEntity echo(@RequestBody EchoRequest request) throws JsonProcessingException {
+    public ResponseEntity echo(@RequestBody EchoRequest request) throws IOException {
         // bot인지 아닌지
         if (request.getEvent().getBotId() != null) {
             return ResponseEntity.ok().build();
         }
-        // key값, 채널값 가져오기
-        SlackPostBody slackPostBody = new SlackPostBody(request.getEvent().getText(), channelId);
 
-        // 보내주기
-        RestTemplate restTemplate = new RestTemplate();
+        String messageText = request.getEvent().getText();
 
-        HttpHeaders httpHeaders = new HttpHeaders();
-        httpHeaders.setContentType(MediaType.APPLICATION_JSON);
-        httpHeaders.set("Authorization", key);
+        String[] parsedText = messageText.split("```");
 
-        HttpEntity<String> postRequest = new HttpEntity<>(slackPostBody.toJson(), httpHeaders);
+        String[] command = parsedText[0].split(" ");
 
-        String url = "https://slack.com/api/chat.postMessage";
+        if ("run".equals(command[0])) {
+            String language = command[1];
 
-        restTemplate.postForEntity(url, postRequest, String.class);
+            String content = StringEscapeUtils.unescapeHtml4(parsedText[1]);
+            OutputStream output = new FileOutputStream("src/main/resources/codes/saved.txt");
+            output.write(content.getBytes());
+
+            String uuid = UUID.randomUUID().toString();
+
+            // key값, 채널값 가져오기
+            SlackPostBody slackPostBody = new SlackPostBody(content, channelId);
+
+            // 보내주기
+            RestTemplate restTemplate = new RestTemplate();
+
+            HttpHeaders httpHeaders = new HttpHeaders();
+            httpHeaders.setContentType(MediaType.APPLICATION_JSON);
+            httpHeaders.set("Authorization", key);
+
+            HttpEntity<String> postRequest = new HttpEntity<>(slackPostBody.toJson(), httpHeaders);
+
+            String url = "https://slack.com/api/chat.postMessage";
+
+            restTemplate.postForEntity(url, postRequest, String.class);
+        }
 
         return ResponseEntity.ok().build();
     }
-
 }

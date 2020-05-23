@@ -3,3 +3,4 @@ build
 .gradle
 gradle
 src/main/resources/application.properties
+src/main/resources/codes
