@@ -1,5 +1,6 @@
 package slackbot.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.commons.text.StringEscapeUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.client.RestTemplate;
 import slackbot.dto.EchoRequest;
+import slackbot.dto.PlaygroundRequest;
 import slackbot.dto.SlackPostBody;
 import slackbot.dto.VerifyRequest;
 
@@ -51,10 +53,13 @@ public class SlackController {
             String language = command[1];
 
             String content = StringEscapeUtils.unescapeHtml4(parsedText[1]);
-            OutputStream output = new FileOutputStream("src/main/resources/codes/saved.txt");
-            output.write(content.getBytes());
 
             String uuid = UUID.randomUUID().toString();
+
+            OutputStream output = new FileOutputStream("src/main/resources/codes/"+uuid+".c");
+            output.write(content.getBytes());
+
+
 
             // key값, 채널값 가져오기
             SlackPostBody slackPostBody = new SlackPostBody(content, channelId);
@@ -74,5 +79,22 @@ public class SlackController {
         }
 
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/docker/playground")
+    public void sendToSlackAPIServer(@RequestBody PlaygroundRequest outputData) throws JsonProcessingException {
+        SlackPostBody slackPostBody = new SlackPostBody(outputData.getResult(), channelId);
+
+        RestTemplate restTemplate = new RestTemplate();
+
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setContentType(MediaType.APPLICATION_JSON);
+        httpHeaders.set("Authorization", key);
+
+        HttpEntity<String> postRequest = new HttpEntity<>(slackPostBody.toJson(), httpHeaders);
+
+        String url = "https://slack.com/api/chat.postMessage";
+
+        restTemplate.postForEntity(url, postRequest, String.class);
     }
 }
