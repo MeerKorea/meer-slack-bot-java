@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.client.RestTemplate;
 import slackbot.dto.EchoRequest;
 import slackbot.dto.SlackPostBody;
+import slackbot.dto.VerifyRequest;
 
 @Controller
 public class SlackController {
@@ -22,10 +23,11 @@ public class SlackController {
     @Value("${slack.api.channelId}")
     private String channelId;
 
-    //    @PostMapping("/")
-//    public ResponseEntity verify(@RequestBody VerifyRequest request) {
-//        return ResponseEntity.ok(request);
-//    }
+//    @PostMapping("/")
+    public ResponseEntity verify(@RequestBody VerifyRequest request) {
+        return ResponseEntity.ok(request);
+    }
+
     @PostMapping("/")
     public ResponseEntity echo(@RequestBody EchoRequest request) throws JsonProcessingException {
         // bot인지 아닌지
